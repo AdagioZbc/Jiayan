@@ -67,6 +67,6 @@ for data in train_data_list:
     
 
 ############## Write to jsonl file ################
-with jsonlines.open("./new_train.jsonl", "w") as w:
+with jsonlines.open("./new_train_jiayan.jsonl", "w") as w:
     for line in new_train_data_list:
         w.write(line)
