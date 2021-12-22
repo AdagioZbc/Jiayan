@@ -22,8 +22,9 @@ for data in train_data_list:
     ans_id = data['answer']
     ans = choices[ans_id]
     print(trans, ans)
-    tokenized_ans = tokenizer.tokenize(ans)
+    tokenized_ans = list(tokenizer.tokenize(ans))
     res = max(tokenized_ans, key=len, default='')
+    print(tokenized_ans)
     print(res)
     exit()
 
