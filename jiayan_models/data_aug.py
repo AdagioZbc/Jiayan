@@ -13,7 +13,6 @@ train_data_list = []
 with open(train_dir, "r+", encoding="utf8") as f:
     for item in jsonlines.Reader(f):
         train_data_list.append(item)
-print(len(train_data_list))
 
 ########## initialize jiayan tokenizer ##########
 lm = load_lm('jiayan.klm')
@@ -21,7 +20,8 @@ tokenizer = CharHMMTokenizer(lm)
 
 
 def mutate_choices(old_choices, ans_id, pair_ans):
-    sorted_ans = sort(pair_ans, lambda x:x[0]) # from the longest to the shortest
+    # print("OLD:", old_choices)
+    sorted_ans = sorted(pair_ans, key=lambda x:len(x[0]), reverse=True) # from the longest to the shortest
     for s in sorted_ans:
         new_choices = copy.deepcopy(old_choices)
         mutate_token = s[0]
@@ -32,12 +32,16 @@ def mutate_choices(old_choices, ans_id, pair_ans):
             if i == ans_id:
                 continue # don't mutate the right answer
             else:
-                new_choices[i][mutate_pos:mutate_pos + mutate_len] = mutate_token
+                new_sentence = new_choices[i][:mutate_pos] + mutate_token + new_choices[i][mutate_pos + mutate_len:]
+                new_choices[i] = new_sentence
                 if new_choices[i] == old_choices[ans_id]:
                     flag = False
                     break
         if not flag:  # flag = false, find the next
             continue
+        if new_choices == old_choices:
+            continue
+        break
 
     if flag: # cannot find a mutation token that won't cause misprediction
         return new_choices
@@ -45,23 +49,24 @@ def mutate_choices(old_choices, ans_id, pair_ans):
         return old_choices
 
 
+new_train_data_list = []
 for data in train_data_list:
     trans = data['translation']
     choices = data['choices']
     ans_id = data['answer']
     ans = choices[ans_id]
-    print(trans, ans)
     tokenized_ans = list(tokenizer.tokenize(ans))
     tokenized_pair_ans = []
     cnt = 0
     for token in tokenized_ans:
-        tokenized_pair_ans.append(token, cnt)  # save the token's start position
+        tokenized_pair_ans.append([token, cnt])  # save the token's start position
         cnt += len(token)
-    mutate_choices(choices, ans_id, tokenized_pair_ans)
-    # res = max(tokenized_ans, key=len, default='')
-    # print(tokenized_ans)
-    # print(res)
-    # exit()
+    new_choices = mutate_choices(choices, ans_id, tokenized_pair_ans)
+    # print(new_choices)
+    new_train_data_list.append({"translation": trans, "choices": new_choices, "answer": ans_id})
+    
 
-# print(list(tokenizer.tokenize(text)))
-
+############## Write to jsonl file ################
+with jsonlines.open("./new_train.jsonl", "w") as w:
+    for line in new_train_data_list:
+        w.write(line)
